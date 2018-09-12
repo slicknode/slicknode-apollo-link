@@ -1,0 +1,67 @@
+{
+  "name": "slicknode-apollo-link",
+  "version": "0.1.0",
+  "repository": "https://github.com/slicknode/slicknode-apollo-link.git",
+  "author": "Ivo Meißner <info@overtronic.com>",
+  "license": "MIT",
+  "types": "dist/index.d.ts",
+  "main": "dist/index.js",
+  "scripts": {
+    "lint": "tslint -c tslint.json 'src/**/*.ts'",
+    "lint:fix": "tslint -c tslint.json --fix 'src/**/*.ts'",
+    "build": "tsc",
+    "clean": "rimraf dist/*",
+    "watch": "tsc --watch",
+    "test": "npm run lint && npm run testonly",
+    "testonly": "mocha --check-leaks --exit --full-trace --require ts-node/register 'src/**/__tests__/**/*-test.{ts,tsx}'",
+    "testonly:cover": "nyc --reporter html --reporter text-summary -- npm run testonly",
+    "testonly:coveralls": "nyc --silent -- npm run testonly && nyc report --reporter text-lcov | coveralls",
+    "dist": "npm run clean && tsc",
+    "prepare": "npm run clean && npm run dist"
+  },
+  "directories": {
+    "lib": "./dist"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "@types/chai": "^4.1.4",
+    "@types/mocha": "^5.2.5",
+    "@types/sinon": "^5.0.2",
+    "apollo-cache-inmemory": "^1.2.10",
+    "apollo-client": "^2.4.2",
+    "chai": "^4.1.2",
+    "coveralls": "^3.0.2",
+    "mocha": "^5.2.0",
+    "nyc": "^13.0.1",
+    "rimraf": "^2.6.2",
+    "sinon": "^6.3.1",
+    "ts-node": "^7.0.1",
+    "tslint": "^5.11.0",
+    "typescript": "^3.0.3"
+  },
+  "nyc": {
+    "extension": [
+      ".ts",
+      ".tsx"
+    ],
+    "exclude": [
+      "**/*.d.ts"
+    ],
+    "include": [
+      "src/**/*"
+    ],
+    "reporter": [
+      "html"
+    ],
+    "all": true
+  },
+  "dependencies": {
+    "apollo-link": "^1.2.2",
+    "graphql": "^14.0.2",
+    "slicknode-client": "^0.2.2"
+  }
+}
