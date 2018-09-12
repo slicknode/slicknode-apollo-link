@@ -8,7 +8,7 @@ with [apollo-client](https://www.apollographql.com/client).
 Install both the [slicknode-client](https://github.com/slicknode/slicknode-client) and the 
 [slicknode-apollo-link](https://github.com/slicknode/slicknode-apollo-link) npm package: 
 
-    yarn add slicknode-apollo-link
+    yarn add slicknode-client slicknode-apollo-link
 
 ## Usage
 

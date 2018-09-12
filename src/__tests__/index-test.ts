@@ -1,10 +1,10 @@
+import { InMemoryCache } from 'apollo-cache-inmemory';
+import { ApolloClient } from 'apollo-client';
 import {expect} from 'chai';
+import { parse } from 'graphql';
+import sinon from 'sinon';
 import Client from 'slicknode-client';
 import SlicknodeLink from '../index';
-import sinon from 'sinon';
-import { ApolloClient } from 'apollo-client';
-import { InMemoryCache } from 'apollo-cache-inmemory';
-import { parse } from 'graphql';
 
 describe('SlicknodeLink', () => {
   it('fails for missing configuration options', () => {
@@ -38,14 +38,14 @@ describe('SlicknodeLink', () => {
         value: 'test',
       },
     };
-    sinon.stub(client, "fetch").resolves(payload);
+    sinon.stub(client, 'fetch').resolves(payload);
     const apolloClient = new ApolloClient({
       link,
-      cache: new InMemoryCache()
+      cache: new InMemoryCache(),
     });
 
     const result = await apolloClient.query({
-      query: parse('{value}')
+      query: parse('{value}'),
     });
 
     expect(result.data).to.deep.equal(payload.data);
@@ -60,15 +60,15 @@ describe('SlicknodeLink', () => {
     });
 
     const errorMessage = 'Error fetching data';
-    sinon.stub(client, "fetch").throws(errorMessage);
+    sinon.stub(client, 'fetch').throws(errorMessage);
     const apolloClient = new ApolloClient({
       link,
-      cache: new InMemoryCache()
+      cache: new InMemoryCache(),
     });
 
     try {
       const result = await apolloClient.query({
-        query: parse('{value}')
+        query: parse('{value}'),
       });
     } catch (e) {
       expect(e.networkError.name).to.deep.equal(errorMessage);
