@@ -16,7 +16,7 @@ interface IOptions {
  */
 function createLink(options: IOptions): ApolloLink {
   const client = options.client;
-  if (!client || !(client instanceof Client)) {
+  if (!client) {
     throw new Error('No instance of a client provided in configuration options for SlicknodeLink');
   }
   return new ApolloLink((operation) =>
