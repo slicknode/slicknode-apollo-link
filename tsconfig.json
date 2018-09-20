@@ -9,6 +9,7 @@
     "sourceMap": true,
     "outDir": "dist",
     "baseUrl": ".",
+    "declaration": true,
     "lib": [
       "dom",
       "esnext",
