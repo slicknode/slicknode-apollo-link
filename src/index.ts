@@ -1,5 +1,5 @@
 import {ApolloLink, createOperation, FetchResult, NextLink, Observable, Operation} from 'apollo-link';
-import {parse} from 'graphql/language/parser';
+import gql from 'graphql-tag';
 import MemoryStorage from './storage/MemoryStorage';
 import {IAuthTokenSet, ISlicknodeLinkOptions, IStorage} from './types';
 
@@ -14,7 +14,7 @@ declare var global: {
   localStorage: IStorage;
 };
 
-export const REFRESH_TOKEN_MUTATION = `mutation refreshToken($token: String!) {
+export const REFRESH_TOKEN_MUTATION = gql`mutation refreshToken($token: String!) {
   refreshAuthToken(input: {refreshToken: $token}) {
     accessToken
     refreshToken
@@ -23,7 +23,7 @@ export const REFRESH_TOKEN_MUTATION = `mutation refreshToken($token: String!) {
   }
 }`;
 
-export const LOGOUT_MUTATION = `mutation logout($refreshToken: String) {
+export const LOGOUT_MUTATION = gql`mutation logout($refreshToken: String) {
   logoutUser(input:{refreshToken:$refreshToken}) {
   	success
 	}
@@ -232,7 +232,7 @@ export default class SlicknodeLink extends ApolloLink {
       if (!accessToken && refreshToken) {
         this.debug('No valid access token found, obtaining new AuthTokenSet with refresh token');
         const refreshOperation = createOperation({}, {
-          query: parse(REFRESH_TOKEN_MUTATION),
+          query: REFRESH_TOKEN_MUTATION,
           variables: {
             token: refreshToken,
           },
