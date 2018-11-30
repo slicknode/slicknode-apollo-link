@@ -315,12 +315,16 @@ export default class SlicknodeLink extends ApolloLink {
           },
           next: (result) => {
             if (result.data && result.data.refreshAuthToken) {
-              this.validateAndSetAuthTokenSet(result.data.refreshAuthToken);
+              if (!this.validateAndSetAuthTokenSet(result.data.refreshAuthToken)) {
+                this.logout();
+              }
             } else {
               this.debug('Refreshing auth token mutation failed');
               this.logout();
             }
-            resolve({});
+            resolve(this.hasAccessToken() ? {
+              Authorization: `Bearer ${this.getAccessToken()}`,
+            } : {});
           },
         });
       } else {

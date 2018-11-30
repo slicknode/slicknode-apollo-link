@@ -185,7 +185,7 @@ describe('SlicknodeLink', () => {
     });
   });
 
-  it('executes refreshToken request in subsequent links', (done) => {
+  it('executes refreshToken request in subsequent links and adds auth headers', (done) => {
     const data = {
       test: true,
     };
@@ -195,22 +195,49 @@ describe('SlicknodeLink', () => {
       refreshToken: 'refresh1',
       refreshTokenLifetime: 100,
     };
+    const refreshedAuthTokenSet: IAuthTokenSet = {
+      accessToken: 'accessToken2',
+      accessTokenLifetime: 20,
+      refreshToken: 'refresh2',
+      refreshTokenLifetime: 200,
+    };
     const slicknodeLink = new SlicknodeLink();
     slicknodeLink.setAuthTokenSet(authTokenSet);
 
+    let refreshTokenExecuted = false;
+    const query = gql`{test}`;
     const link = ApolloLink.from([
       slicknodeLink,
       new ApolloLink((operation) => {
-        expect(operation.query).to.deep.equal(gql`${REFRESH_TOKEN_MUTATION}`);
-        expect(operation.variables).to.deep.equal({
-          token: authTokenSet.refreshToken,
+        if (!refreshTokenExecuted) {
+          // First request refreshes auth tokens
+          expect(operation.query).to.deep.equal(gql`${REFRESH_TOKEN_MUTATION}`);
+          expect(operation.variables).to.deep.equal({
+            token: authTokenSet.refreshToken,
+          });
+          expect(operation.getContext()).to.deep.equal({});
+          refreshTokenExecuted = true;
+          return new Observable<FetchResult>((observer) => {
+            observer.next({
+              data: {
+                refreshAuthToken: refreshedAuthTokenSet,
+              },
+            });
+          });
+        }
+        // Second request returns actual results and should contain auth headers
+        expect(operation.query).to.deep.equal(query);
+        expect(operation.variables).to.deep.equal({});
+        expect(operation.getContext()).to.deep.equal({
+          headers: {
+            Authorization: `Bearer ${refreshedAuthTokenSet.accessToken}`,
+          },
         });
-        expect(operation.getContext()).to.deep.equal({});
-        done();
-        return null;
+        return new Observable<FetchResult>((observer) => {
+          observer.next({data});
+        });
       }),
     ]);
-    const query = gql`{test}`;
     const request: GraphQLRequest = {
       query,
       variables: {},
@@ -219,6 +246,135 @@ describe('SlicknodeLink', () => {
     observable.subscribe({
       next(result: FetchResult) {
         expect(result.data).to.equal(data);
+        done();
+      },
+      error: done,
+    });
+  });
+
+  it('ignores invalid refreshToken', (done) => {
+    const data = {
+      test: true,
+    };
+    const authTokenSet: IAuthTokenSet = {
+      accessToken: 'accessToken1',
+      accessTokenLifetime: -20,
+      refreshToken: 'refresh1',
+      refreshTokenLifetime: 100,
+    };
+    const refreshedAuthTokenSet = {
+      accessToken: 'accessToken2',
+      accessTokenLifetime: 'invalid',
+      refreshToken: 'refresh2',
+      refreshTokenLifetime: 200,
+    };
+    const slicknodeLink = new SlicknodeLink();
+    slicknodeLink.setAuthTokenSet(authTokenSet);
+
+    let refreshTokenExecuted = false;
+    const query = gql`{test}`;
+    const link = ApolloLink.from([
+      slicknodeLink,
+      new ApolloLink((operation) => {
+        if (!refreshTokenExecuted) {
+          // First request refreshes auth tokens
+          expect(operation.query).to.deep.equal(gql`${REFRESH_TOKEN_MUTATION}`);
+          expect(operation.variables).to.deep.equal({
+            token: authTokenSet.refreshToken,
+          });
+          expect(operation.getContext()).to.deep.equal({});
+          refreshTokenExecuted = true;
+          return new Observable<FetchResult>((observer) => {
+            observer.next({
+              data: {
+                refreshAuthToken: refreshedAuthTokenSet,
+              },
+            });
+          });
+        }
+        // Second request returns actual results and should contain auth headers
+        expect(operation.query).to.deep.equal(query);
+        expect(operation.variables).to.deep.equal({});
+        expect(operation.getContext()).to.deep.equal({headers: {}});
+        expect(slicknodeLink.getRefreshToken()).to.be.null;
+        return new Observable<FetchResult>((observer) => {
+          observer.next({data});
+        });
+      }),
+    ]);
+    const request: GraphQLRequest = {
+      query,
+      variables: {},
+    };
+    const observable = execute(link, request);
+    observable.subscribe({
+      next(result: FetchResult) {
+        expect(result.data).to.equal(data);
+        done();
+      },
+      error: done,
+    });
+  });
+
+  it('ignores expired accessToken from automatic refresh', (done) => {
+    const data = {
+      test: true,
+    };
+    const authTokenSet: IAuthTokenSet = {
+      accessToken: 'accessToken1',
+      accessTokenLifetime: -20,
+      refreshToken: 'refresh1',
+      refreshTokenLifetime: 100,
+    };
+    const refreshedAuthTokenSet = {
+      accessToken: 'accessToken2',
+      accessTokenLifetime: -20,
+      refreshToken: 'refresh2',
+      refreshTokenLifetime: 200,
+    };
+    const slicknodeLink = new SlicknodeLink();
+    slicknodeLink.setAuthTokenSet(authTokenSet);
+
+    let refreshTokenExecuted = false;
+    const query = gql`{test}`;
+    const link = ApolloLink.from([
+      slicknodeLink,
+      new ApolloLink((operation) => {
+        if (!refreshTokenExecuted) {
+          // First request refreshes auth tokens
+          expect(operation.query).to.deep.equal(gql`${REFRESH_TOKEN_MUTATION}`);
+          expect(operation.variables).to.deep.equal({
+            token: authTokenSet.refreshToken,
+          });
+          expect(operation.getContext()).to.deep.equal({});
+          refreshTokenExecuted = true;
+          return new Observable<FetchResult>((observer) => {
+            observer.next({
+              data: {
+                refreshAuthToken: refreshedAuthTokenSet,
+              },
+            });
+          });
+        }
+        // Second request returns actual results and should contain auth headers
+        expect(operation.query).to.deep.equal(query);
+        expect(operation.variables).to.deep.equal({});
+        expect(operation.getContext()).to.deep.equal({headers: {}});
+        expect(slicknodeLink.hasAccessToken()).to.be.false;
+        return new Observable<FetchResult>((observer) => {
+          observer.next({data});
+        });
+      }),
+    ]);
+    const request: GraphQLRequest = {
+      query,
+      variables: {},
+    };
+    const observable = execute(link, request);
+    observable.subscribe({
+      next(result: FetchResult) {
+        expect(result.data).to.equal(data);
+        done();
       },
       error: done,
     });
