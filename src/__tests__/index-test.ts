@@ -2,7 +2,7 @@ import {ApolloLink, execute, FetchResult, GraphQLRequest, Observable} from 'apol
 import {expect} from 'chai';
 import gql from 'graphql-tag';
 import sinon from 'sinon';
-import SlicknodeLink, {REFRESH_TOKEN_MUTATION} from '../index';
+import SlicknodeLink, {REFRESH_TOKEN_MUTATION} from '../SlicknodeLink';
 import {IAuthTokenSet} from '../types';
 
 describe('SlicknodeLink', () => {
