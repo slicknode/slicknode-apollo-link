@@ -331,6 +331,7 @@ export default class SlicknodeLink extends ApolloLink {
 
   protected validateAndSetAuthTokenSet(tokenSet: any): boolean {
     if (
+      tokenSet &&
       typeof tokenSet === 'object' &&
       typeof tokenSet.accessToken === 'string' &&
       typeof tokenSet.accessTokenLifetime === 'number' &&

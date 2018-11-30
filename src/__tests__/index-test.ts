@@ -5,6 +5,8 @@ import sinon from 'sinon';
 import SlicknodeLink, {REFRESH_TOKEN_MUTATION} from '../SlicknodeLink';
 import {IAuthTokenSet} from '../types';
 
+// tslint:disable no-unused-expression
+
 describe('SlicknodeLink', () => {
   it('forwards request to next link', (done) => {
     const data = {
@@ -67,7 +69,7 @@ describe('SlicknodeLink', () => {
     });
   });
 
-  it('uses accessToken form auth token set', (done) => {
+  it('uses accessToken from auth token set', (done) => {
     const data = {
       test: true,
     };
@@ -104,6 +106,32 @@ describe('SlicknodeLink', () => {
       },
       error: done,
     });
+  });
+
+  it('returns valid value for hasAccessToken', () => {
+    const authTokenSet: IAuthTokenSet = {
+      accessToken: 'accessToken1',
+      accessTokenLifetime: 20,
+      refreshToken: 'refresh1',
+      refreshTokenLifetime: 100,
+    };
+    const slicknodeLink = new SlicknodeLink();
+    expect(slicknodeLink.hasAccessToken()).to.be.false;
+    slicknodeLink.setAuthTokenSet(authTokenSet);
+    expect(slicknodeLink.hasAccessToken()).to.be.true;
+  });
+
+  it('returns valid value for hasRefreshToken', () => {
+    const authTokenSet: IAuthTokenSet = {
+      accessToken: 'accessToken1',
+      accessTokenLifetime: 20,
+      refreshToken: 'refresh1',
+      refreshTokenLifetime: 100,
+    };
+    const slicknodeLink = new SlicknodeLink();
+    expect(slicknodeLink.hasRefreshToken()).to.be.false;
+    slicknodeLink.setAuthTokenSet(authTokenSet);
+    expect(slicknodeLink.hasRefreshToken()).to.be.true;
   });
 
   it('does not use expired accessToken form auth token set', (done) => {
@@ -220,17 +248,17 @@ describe('SlicknodeLink', () => {
         expect(result.data).to.equal(data);
         expect(slicknodeLink.getAccessToken()).to.deep.equal(authTokenSet.accessToken);
         expect(slicknodeLink.getAccessTokenExpires()).to.be.above(
-          authTokenSet.accessTokenLifetime * 1000 + Date.now() - 1000
+          authTokenSet.accessTokenLifetime * 1000 + Date.now() - 1000,
         );
         expect(slicknodeLink.getAccessTokenExpires()).to.be.below(
-          authTokenSet.accessTokenLifetime * 1000 + Date.now() + 1
+          authTokenSet.accessTokenLifetime * 1000 + Date.now() + 1,
         );
         expect(slicknodeLink.getRefreshToken()).to.deep.equal(authTokenSet.refreshToken);
         expect(slicknodeLink.getRefreshTokenExpires()).to.be.above(
-          authTokenSet.refreshTokenLifetime * 1000 + Date.now() - 1000
+          authTokenSet.refreshTokenLifetime * 1000 + Date.now() - 1000,
         );
         expect(slicknodeLink.getRefreshTokenExpires()).to.be.below(
-          authTokenSet.refreshTokenLifetime * 1000 + Date.now() + 1
+          authTokenSet.refreshTokenLifetime * 1000 + Date.now() + 1,
         );
         done();
       },
@@ -278,17 +306,17 @@ describe('SlicknodeLink', () => {
         expect(result.data).to.equal(data);
         expect(slicknodeLink.getAccessToken()).to.deep.equal(authTokenSet.accessToken);
         expect(slicknodeLink.getAccessTokenExpires()).to.be.above(
-          authTokenSet.accessTokenLifetime * 1000 + Date.now() - 1000
+          authTokenSet.accessTokenLifetime * 1000 + Date.now() - 1000,
         );
         expect(slicknodeLink.getAccessTokenExpires()).to.be.below(
-          authTokenSet.accessTokenLifetime * 1000 + Date.now() + 1
+          authTokenSet.accessTokenLifetime * 1000 + Date.now() + 1,
         );
         expect(slicknodeLink.getRefreshToken()).to.deep.equal(authTokenSet.refreshToken);
         expect(slicknodeLink.getRefreshTokenExpires()).to.be.above(
-          authTokenSet.refreshTokenLifetime * 1000 + Date.now() - 1000
+          authTokenSet.refreshTokenLifetime * 1000 + Date.now() - 1000,
         );
         expect(slicknodeLink.getRefreshTokenExpires()).to.be.below(
-          authTokenSet.refreshTokenLifetime * 1000 + Date.now() + 1
+          authTokenSet.refreshTokenLifetime * 1000 + Date.now() + 1,
         );
         done();
       },
@@ -299,6 +327,91 @@ describe('SlicknodeLink', () => {
   it('ignores invalid result from mutation field via authentication directive', (done) => {
     const data = {
       loginMutation: {},
+    };
+    const slicknodeLink = new SlicknodeLink();
+
+    const link = ApolloLink.from([
+      slicknodeLink,
+      new ApolloLink(() => {
+        return new Observable<FetchResult>((observer) => {
+          observer.next({data});
+        });
+      }),
+    ]);
+    const query = gql`mutation {
+      loginMutation @authenticate {
+        accessToken
+        accessTokenLifetime
+        refreshToken
+        refreshTokenLifetime
+      }
+    }`;
+    const request: GraphQLRequest = {
+      query,
+      variables: {},
+    };
+    const observable = execute(link, request);
+    observable.subscribe({
+      next(result: FetchResult) {
+        expect(result.data).to.equal(data);
+        expect(slicknodeLink.getAccessToken()).to.be.null;
+        expect(slicknodeLink.getAccessTokenExpires()).to.be.null;
+        expect(slicknodeLink.getRefreshToken()).to.be.null;
+        expect(slicknodeLink.getRefreshTokenExpires()).to.be.null;
+        done();
+      },
+      error: done,
+    });
+  });
+
+  it('ignores NULL result from mutation field via authentication directive', (done) => {
+    const data = {
+      loginMutation: null as any,
+    };
+    const slicknodeLink = new SlicknodeLink();
+
+    const link = ApolloLink.from([
+      slicknodeLink,
+      new ApolloLink(() => {
+        return new Observable<FetchResult>((observer) => {
+          observer.next({data});
+        });
+      }),
+    ]);
+    const query = gql`mutation {
+      loginMutation @authenticate {
+        accessToken
+        accessTokenLifetime
+        refreshToken
+        refreshTokenLifetime
+      }
+    }`;
+    const request: GraphQLRequest = {
+      query,
+      variables: {},
+    };
+    const observable = execute(link, request);
+    observable.subscribe({
+      next(result: FetchResult) {
+        expect(result.data).to.equal(data);
+        expect(slicknodeLink.getAccessToken()).to.be.null;
+        expect(slicknodeLink.getAccessTokenExpires()).to.be.null;
+        expect(slicknodeLink.getRefreshToken()).to.be.null;
+        expect(slicknodeLink.getRefreshTokenExpires()).to.be.null;
+        done();
+      },
+      error: done,
+    });
+  });
+
+  it('ignores invalid auth token type result from mutation field via authentication directive', (done) => {
+    const data = {
+      loginMutation: {
+        accessToken: 'accessToken1',
+        accessTokenLifetime: '20',
+        refreshToken: 'refresh1',
+        refreshTokenLifetime: 100,
+      },
     };
     const slicknodeLink = new SlicknodeLink();
 
@@ -430,5 +543,189 @@ describe('SlicknodeLink', () => {
       },
       error: done,
     });
+  });
+
+  it('adds auth token set via directive on alias field', (done) => {
+    const authTokenSet: IAuthTokenSet = {
+      accessToken: 'accessToken1',
+      accessTokenLifetime: 20,
+      refreshToken: 'refresh1',
+      refreshTokenLifetime: 100,
+    };
+    const data = {
+      alias: authTokenSet,
+    };
+    const slicknodeLink = new SlicknodeLink();
+
+    const link = ApolloLink.from([
+      slicknodeLink,
+      new ApolloLink(() => {
+        return new Observable<FetchResult>((observer) => {
+          observer.next({data});
+        });
+      }),
+    ]);
+    const query = gql`mutation LoginMutation {
+      alias: loginMutation @authenticate {
+        accessToken
+        accessTokenLifetime
+        refreshToken
+        refreshTokenLifetime
+      }
+    }
+    `;
+    const request: GraphQLRequest = {
+      query,
+      variables: {},
+      operationName: 'LoginMutation',
+    };
+    const observable = execute(link, request);
+    observable.subscribe({
+      next(result: FetchResult) {
+        expect(result.data).to.equal(data);
+        expect(slicknodeLink.getAccessToken()).to.deep.equal(authTokenSet.accessToken);
+        expect(slicknodeLink.getAccessTokenExpires()).to.be.above(
+          authTokenSet.accessTokenLifetime * 1000 + Date.now() - 1000,
+        );
+        expect(slicknodeLink.getAccessTokenExpires()).to.be.below(
+          authTokenSet.accessTokenLifetime * 1000 + Date.now() + 1,
+        );
+        expect(slicknodeLink.getRefreshToken()).to.deep.equal(authTokenSet.refreshToken);
+        expect(slicknodeLink.getRefreshTokenExpires()).to.be.above(
+          authTokenSet.refreshTokenLifetime * 1000 + Date.now() - 1000,
+        );
+        expect(slicknodeLink.getRefreshTokenExpires()).to.be.below(
+          authTokenSet.refreshTokenLifetime * 1000 + Date.now() + 1,
+        );
+        done();
+      },
+      error: done,
+    });
+  });
+
+  it('adds auth token set for multiple mutations in one query', (done) => {
+    const authTokenSet: IAuthTokenSet = {
+      accessToken: 'accessToken1',
+      accessTokenLifetime: 20,
+      refreshToken: 'refresh1',
+      refreshTokenLifetime: 100,
+    };
+    const data = {
+      otherMutation: true,
+      loginMutation: authTokenSet,
+      test: true,
+    };
+    const slicknodeLink = new SlicknodeLink();
+
+    const link = ApolloLink.from([
+      slicknodeLink,
+      new ApolloLink(() => {
+        return new Observable<FetchResult>((observer) => {
+          observer.next({data});
+        });
+      }),
+    ]);
+    const query = gql`mutation LoginMutation {
+      otherMutation
+      loginMutation @authenticate {
+        accessToken
+        accessTokenLifetime
+        refreshToken
+        refreshTokenLifetime
+      }
+      test: otherMutation2
+    }
+    `;
+    const request: GraphQLRequest = {
+      query,
+      variables: {},
+      operationName: 'LoginMutation',
+    };
+    const observable = execute(link, request);
+    observable.subscribe({
+      next(result: FetchResult) {
+        expect(result.data).to.equal(data);
+        expect(slicknodeLink.getAccessToken()).to.deep.equal(authTokenSet.accessToken);
+        expect(slicknodeLink.getAccessTokenExpires()).to.be.above(
+          authTokenSet.accessTokenLifetime * 1000 + Date.now() - 1000,
+        );
+        expect(slicknodeLink.getAccessTokenExpires()).to.be.below(
+          authTokenSet.accessTokenLifetime * 1000 + Date.now() + 1,
+        );
+        expect(slicknodeLink.getRefreshToken()).to.deep.equal(authTokenSet.refreshToken);
+        expect(slicknodeLink.getRefreshTokenExpires()).to.be.above(
+          authTokenSet.refreshTokenLifetime * 1000 + Date.now() - 1000,
+        );
+        expect(slicknodeLink.getRefreshTokenExpires()).to.be.below(
+          authTokenSet.refreshTokenLifetime * 1000 + Date.now() + 1,
+        );
+        done();
+      },
+      error: done,
+    });
+  });
+
+  it('removes auth tokens from link on logout', (done) => {
+    const data = {
+      logoutUser: {
+        success: true,
+      },
+    };
+    const authTokenSet: IAuthTokenSet = {
+      accessToken: 'accessToken1',
+      accessTokenLifetime: 20,
+      refreshToken: 'refresh1',
+      refreshTokenLifetime: 100,
+    };
+    const slicknodeLink = new SlicknodeLink();
+    slicknodeLink.setAuthTokenSet(authTokenSet);
+
+    const link = ApolloLink.from([
+      slicknodeLink,
+      new ApolloLink(() => {
+        return new Observable<FetchResult>((observer) => {
+          observer.next({data});
+        });
+      }),
+    ]);
+    const query = gql`mutation LogoutMutation($token: String) {
+      logoutUser(input: {refreshToken: $token}) {
+        success
+      }
+    }`;
+    const request: GraphQLRequest = {
+      query,
+      variables: {
+        token: authTokenSet.refreshToken,
+      },
+    };
+    const observable = execute(link, request);
+    observable.subscribe({
+      next(result: FetchResult) {
+        expect(result.data).to.equal(data);
+        expect(slicknodeLink.getAccessToken()).to.be.null;
+        expect(slicknodeLink.getAccessTokenExpires()).to.be.null;
+        expect(slicknodeLink.getRefreshToken()).to.be.null;
+        expect(slicknodeLink.getRefreshTokenExpires()).to.be.null;
+        done();
+      },
+      error: done,
+    });
+  });
+
+  it('throws error if SlicknodeLink is last link in chain', () => {
+    const slicknodeLink = new SlicknodeLink();
+
+    const link = ApolloLink.from([
+      slicknodeLink,
+    ]);
+    const query = gql`{test}`;
+    const request: GraphQLRequest = {
+      query,
+      variables: {},
+    };
+    expect(() => {
+      execute(link, request);
+    }).to.throw('Network link is missing in apollo client or SlicknodeLink is last link in the chain.');
   });
 });
