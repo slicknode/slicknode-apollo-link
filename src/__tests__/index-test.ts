@@ -134,6 +134,20 @@ describe('SlicknodeLink', () => {
     expect(slicknodeLink.hasRefreshToken()).to.be.true;
   });
 
+  it('removes access token if expire is set to NULL', () => {
+    const authTokenSet: IAuthTokenSet = {
+      accessToken: 'accessToken1',
+      accessTokenLifetime: 20,
+      refreshToken: 'refresh1',
+      refreshTokenLifetime: 100,
+    };
+    const slicknodeLink = new SlicknodeLink();
+    slicknodeLink.setAuthTokenSet(authTokenSet);
+    expect(slicknodeLink.hasAccessToken()).to.be.true;
+    slicknodeLink.setAccessTokenExpires(null);
+    expect(slicknodeLink.hasAccessToken()).to.be.false;
+  });
+
   it('does not use expired accessToken form auth token set', (done) => {
     const data = {
       test: true,
