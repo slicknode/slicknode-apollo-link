@@ -60,6 +60,7 @@
   },
   "dependencies": {
     "apollo-link": "^1.2.2",
+    "apollo-utilities": "^1.0.26",
     "graphql-tag": "^2.10.0"
   },
   "peerDependencies": {}

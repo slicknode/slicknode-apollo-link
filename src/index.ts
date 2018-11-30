@@ -1,4 +1,6 @@
 import {ApolloLink, createOperation, FetchResult, NextLink, Observable, Operation} from 'apollo-link';
+import {removeDirectivesFromDocument} from 'apollo-utilities';
+import { DirectiveNode, FieldNode, OperationDefinitionNode } from 'graphql';
 import gql from 'graphql-tag';
 import MemoryStorage from './storage/MemoryStorage';
 import {IAuthTokenSet, ISlicknodeLinkOptions, IStorage} from './types';
@@ -28,6 +30,11 @@ export const LOGOUT_MUTATION = gql`mutation logout($refreshToken: String) {
   	success
 	}
 }`;
+
+const authenticationDirectiveRemoveConfig = {
+  test: (directive: DirectiveNode) => directive.name.value === 'authenticate',
+  remove: false,
+};
 
 /**
  * SlicknodeLink instance to be used to load data with apollo-client
@@ -74,15 +81,86 @@ export default class SlicknodeLink extends ApolloLink {
               ...authHeaders,
             },
           }));
-          forward(operation).subscribe(observer);
+
+          const definitions = operation.query.definitions;
+          // Find current operation in definitions
+          const currentOperation: OperationDefinitionNode | null = definitions.find((operationDefinition) => {
+            return (
+              operationDefinition.kind === 'OperationDefinition' &&
+              operationDefinition.name &&
+              operationDefinition.name.value === operation.operationName
+            );
+          }) as OperationDefinitionNode | null;
+
+          // Check mutations for directives and logoutMutation
+          const resultListeners: Array<(value: any) => void> = [];
+          if (currentOperation.operation === 'mutation') {
+            const fields: FieldNode[] = [];
+            currentOperation.selectionSet.selections.forEach((selectionNode) => {
+              if (selectionNode.kind === 'Field') {
+                fields.push(selectionNode);
+              } else {
+                // @TODO: Collect all relevant fields recursively from fragments / child fragments
+                // tslint:disable-next-line no-console
+                console.warn('Fragments not supported on Mutation type for slicknode-apollo-link');
+              }
+            });
+
+            fields.forEach((field) => {
+              if (field.name.value === 'logoutUser') {
+                // Subscribe to result to remove auth tokens from storage
+                resultListeners.push(() => {
+                  this.debug('Removing auth tokens from storage');
+                  this.logout();
+                });
+              } else if (
+                field.directives &&
+                field.directives.find((directive) => directive.name.value === 'authenticate')
+              ) {
+                const fieldName = field.alias ? field.alias.value : field.name.value;
+                // Subscribe to result to set auth token set
+                resultListeners.push((result) => {
+                  // Validate auth token set and update tokens if valid
+                  if (
+                    result.data &&
+                    result.data.hasOwnProperty(fieldName) &&
+                    typeof result.data[fieldName] === 'object'
+                  ) {
+                    const tokenSet = result.data[fieldName];
+                    if (
+                      typeof tokenSet.accessToken === 'string' &&
+                      typeof tokenSet.accessTokenLifetime === 'number' &&
+                      typeof tokenSet.refreshToken === 'string' &&
+                      typeof tokenSet.refreshTokenLifetime === 'number'
+                    ) {
+                      // Update auth tokens in storage of link
+                      this.setAuthTokenSet(tokenSet);
+                      this.debug('Login successful, auth token set updated');
+                    } else {
+                      this.debug('The auth token set has no valid format');
+                    }
+                  } else {
+                    this.debug('No valid token set returned');
+                  }
+                });
+              }
+            });
+          }
+          // Remove @authenticated directives from document
+          operation.query = removeDirectivesFromDocument(
+            [ authenticationDirectiveRemoveConfig ],
+            operation.query,
+          );
+          const nextObservable = forward(operation);
+
+          // Add result listeners for token and logout processing
+          resultListeners.map((listener) => nextObservable.subscribe(listener));
+          nextObservable.subscribe(observer);
         })
         .catch((error) => {
           this.debug('Error obtaining auth headers in SlicknodeLink');
           observer.error(error);
         });
-
-      // return forward(operation);
-
     });
   }
 
@@ -203,7 +281,7 @@ export default class SlicknodeLink extends ApolloLink {
   /**
    * Clears all tokens in the storage
    */
-  public async logout(forward: NextLink): Promise<void> {
+  public async logout(): Promise<void> {
     this.storage.removeItem(this.namespace + REFRESH_TOKEN_KEY);
     this.storage.removeItem(this.namespace + REFRESH_TOKEN_EXPIRES_KEY);
     this.storage.removeItem(this.namespace + ACCESS_TOKEN_KEY);
