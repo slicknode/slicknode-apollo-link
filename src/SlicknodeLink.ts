@@ -87,8 +87,10 @@ export default class SlicknodeLink extends ApolloLink {
           const currentOperation: OperationDefinitionNode | null = definitions.find((operationDefinition) => {
             return (
               operationDefinition.kind === 'OperationDefinition' &&
-              operationDefinition.name &&
-              operationDefinition.name.value === operation.operationName
+              (
+                (operationDefinition.name && operationDefinition.name.value === operation.operationName) ||
+                !operationDefinition.name
+              )
             );
           }) as OperationDefinitionNode | null;
 
