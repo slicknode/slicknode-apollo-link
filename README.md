@@ -13,7 +13,7 @@ There is also a peer dependencie to `graphql` which you should already have inst
 
 ## Usage
 
-This is a minimal example to create an instance of an apollo client. Refer to the documentation of the
+This is a minimal example to create an instance of an apollo client with SlicknodeLink. Refer to the documentation of the
 [apollo-client](https://www.apollographql.com/client) to learn how to use and customize it: 
 
 ```javascript
@@ -23,7 +23,9 @@ import { InMemoryCache } from 'apollo-cache-inmemory';
 import { ApolloLink } from 'apollo-link';
 import { HttpLink } from 'apollo-link-http';
 
-const slicknodeLink = new SlicknodeLink();
+const slicknodeLink = new SlicknodeLink({
+  debug: true // Write debug info to console, disable in production
+});
 
 // Create the ApolloClient instance to use in your projects
 const client = new ApolloClient({
@@ -64,7 +66,10 @@ import { gql } from 'graphql-tag';
 
 client.query(gql`
   mutation LoginUser {
-    loginEmailPassword(input: {email: "email@example.com", password: "xyz123"}) @authenticate {
+    loginEmailPassword(input: {
+      email: "email@example.com",
+      password: "xyz123"
+    }) @authenticate {
       accessToken
       refreshToken
       accessTokenLifetime
