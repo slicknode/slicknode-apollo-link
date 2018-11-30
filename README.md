@@ -1,67 +1,111 @@
 # Slicknode Apollo Link
 
-ApolloLink component to use [slicknode-client](https://github.com/slicknode/slicknode-client) 
-with [apollo-client](https://www.apollographql.com/client).
+ApolloLink component that automatically sets authentication headers for GraphQL requests via the [apollo-client](https://www.apollographql.com/client). It stores the access and refresh tokens in a store (for example InMemory, localStorage, sessionStorage etc.) and keeps track of expiration times. 
+If auth tokens expire, they are automatically refreshed in the background when a request is issued, without interruption to the user. Can be combined with any of the available [apollo links](https://www.apollographql.com/docs/link/#linkslist).
 
 ## Installation
 
-Install both the [slicknode-client](https://github.com/slicknode/slicknode-client) and the 
-[slicknode-apollo-link](https://github.com/slicknode/slicknode-apollo-link) npm package: 
+Install the [slicknode-apollo-link](https://github.com/slicknode/slicknode-apollo-link) npm package: 
 
-    yarn add slicknode-client slicknode-apollo-link
+    yarn add slicknode-apollo-link
+
+There is also a peer dependencie to `graphql` which you should already have installed when you are using the [apollo-client](https://www.apollographql.com/client).
 
 ## Usage
 
 This is a minimal example to create an instance of an apollo client. Refer to the documentation of the
-[slicknode-client](https://github.com/slicknode/slicknode-client) and the [apollo-client](https://www.apollographql.com/client)
-to learn how to use and customize it: 
+[apollo-client](https://www.apollographql.com/client) to learn how to use and customize it: 
 
-```typescript
-import SlicknodeClient from 'slicknode-client';
+```javascript
 import SlicknodeLink from 'slicknode-apollo-link';
 import { ApolloClient } from 'apollo-client';
 import { InMemoryCache } from 'apollo-cache-inmemory';
+import { ApolloLink } from 'apollo-link';
+import { HttpLink } from 'apollo-link-http';
 
-// Create an instance of the slicknode-client
-const slicknodeClient = new SlicknodeClient({
-  // Set your Slicknode GraphQL endpoint here
-  endpoint: 'https://myproject.slicknode.com'
-});
+const slicknodeLink = new SlicknodeLink();
 
 // Create the ApolloClient instance to use in your projects
-const apolloClient = new ApolloClient({
-  // Pass the Slicknode client to the link that should be used by the ApolloClient
-  link: new SlicknodeLink({
-    client: slicknodeClient
-  }),
+const client = new ApolloClient({
+  link: ApolloLink.from([
+    // Add the slicknode link somewhere before the HttpLink
+    slicknodeLink,
+
+    // ... more links (retry, error handling etc.)
+
+    new HttpLink({
+      // Add your slicknode GraphQL endpoint here
+      uri: 'https://you-project.slicknode.com',
+      credentials: 'same-origin',
+    }),
+  ]),
   
   // Add a cache (required by apollo, change as needed...)
   cache: new InMemoryCache()
 });
 
-// Use the apolloClient as usual... (See apollo-client documentation)
+// Use the client as usual... (See apollo-client documentation)
 ```
 
-### Usage with authenticators
+### Authentication
 
-To use the `SlicknodeLink` instance in combination with the available authenticators, use the
-`SlicknodeClient` instance directly that was passed to the link component. Once the `SlicknodeClient` is authenticated,
-the `ApolloClient` instance will also make requests as the authenticated user.
+To authenticate the client on the server and obtain an auth token set, you can execute any mutation 
+that returns such data. By adding the directive `@authenticate` to the mutation, the `SlicknodeLink`
+automatically picks up the tokens, stores them on the client and adds the required authentication headers
+to subsequent requests. 
 
-```typescript
-// Create slicknode client / apollo client and link as described above
-// Then use any authenticator: 
+Make sure that the module with the login mutation is installed and deployed to your Slicknode server. See the list of
+[available auth modules](#available-auth-modules) for details.
 
-import login from 'slicknode-auth-email-password';
+For example:
 
-slicknodeClient.authenticate(login('myemail@example.com', 'mysecretpassword'))
-    .then(() => {
-      console.log('Login successful');
-    })
-    .catch(e => {
-      console.log('Something went wrong: ' + e.message);
-    });
-``` 
+```javascript
+import { gql } from 'graphql-tag';
 
-**Tipp:** You might want to invalidate the cached data in the apollo client once the authentication state changes
-inside of the slicknode client. 
+client.query(gql`
+  mutation LoginUser {
+    loginEmailPassword(input: {email: "email@example.com", password: "xyz123"}) @authenticate {
+      accessToken
+      refreshToken
+      accessTokenLifetime
+      refreshTokenLifetime
+    }
+  }`
+)
+  .then(result => {
+    console.log('');
+  })
+  .catch(err => {
+    console.log('Something went wrong: ', err.message);
+  });
+```
+
+
+### Logout
+
+To log the user out, you can execute the `logoutUser` mutation. This automatically deletes the auth tokens
+from the store when successful and invalidates the refresh token no the server: 
+
+```javascript
+client.query({
+  query: gql`mutation LogoutUser($token: String) {
+    logoutUser(input: {refreshToken: $token}) {
+      success
+    }
+  }`,
+  variables: {
+    // Get the current refreshToken from the SlicknodeLink instance to invalidate it on the server
+    token: slicknodeLink.getRefreshToken()
+  }
+)
+  .then(result => {
+    console.log('Login successful', result.data.logoutUser);
+  })
+  .catch(err => {
+    console.log('Something went wrong: ', err.message);
+  });
+```
+
+### Available Auth Modules
+
+
