@@ -94,7 +94,7 @@ export default class SlicknodeLink extends ApolloLink {
 
           // Check mutations for directives and logoutMutation
           const resultListeners: Array<(value: any) => void> = [];
-          if (currentOperation.operation === 'mutation') {
+          if (currentOperation && currentOperation.operation === 'mutation') {
             const fields: FieldNode[] = [];
             currentOperation.selectionSet.selections.forEach((selectionNode) => {
               if (selectionNode.kind === 'Field') {
@@ -127,18 +127,7 @@ export default class SlicknodeLink extends ApolloLink {
                     typeof result.data[fieldName] === 'object'
                   ) {
                     const tokenSet = result.data[fieldName];
-                    if (
-                      typeof tokenSet.accessToken === 'string' &&
-                      typeof tokenSet.accessTokenLifetime === 'number' &&
-                      typeof tokenSet.refreshToken === 'string' &&
-                      typeof tokenSet.refreshTokenLifetime === 'number'
-                    ) {
-                      // Update auth tokens in storage of link
-                      this.setAuthTokenSet(tokenSet);
-                      this.debug('Login successful, auth token set updated');
-                    } else {
-                      this.debug('The auth token set has no valid format');
-                    }
+                    this.validateAndSetAuthTokenSet(tokenSet);
                   } else {
                     this.debug('No valid token set returned');
                   }
@@ -319,34 +308,46 @@ export default class SlicknodeLink extends ApolloLink {
         observer.subscribe({
           error: (error) => {
             this.debug(`Error refreshing AuthTokenSet: ${error.message}`);
+            this.logout();
+            resolve({});
           },
           next: (result) => {
-            this.debug('Result' + JSON.stringify(result));
+            if (result.data && result.data.refreshAuthToken) {
+              this.validateAndSetAuthTokenSet(result.data.refreshAuthToken);
+            } else {
+              this.debug('Refreshing auth token mutation failed');
+              this.logout();
+            }
             resolve({});
           },
         });
-        /*
-        // We have refresh token but expired auth token. Refresh auth token set.
-        const result = await this.fetch<{refreshAuthToken: IAuthTokenSet | null}>(
-          REFRESH_TOKEN_MUTATION,
-          {token: refreshToken}
-        );
-        if (result && result.data && result.data.refreshAuthToken) {
-          this.setAuthTokenSet(result.data.refreshAuthToken);
-          accessToken = this.getAccessToken();
-        } else {
-          await this.logout();
-        }
-        */
       } else {
         resolve({});
       }
     });
   }
 
+  protected validateAndSetAuthTokenSet(tokenSet: any): boolean {
+    if (
+      typeof tokenSet === 'object' &&
+      typeof tokenSet.accessToken === 'string' &&
+      typeof tokenSet.accessTokenLifetime === 'number' &&
+      typeof tokenSet.refreshToken === 'string' &&
+      typeof tokenSet.refreshTokenLifetime === 'number'
+    ) {
+      // Update auth tokens in storage of link
+      this.setAuthTokenSet(tokenSet);
+      this.debug('Login successful, auth token set updated');
+      return true;
+    }
+
+    this.debug('The auth token set has no valid format');
+    return false;
+  }
+
   protected debug(message: string) {
     if (this.options.debug) {
-      console.debug(`[Slicknode Auth] ${message}`); // tslint:disable-line no-console
+      console.log(`[Slicknode Auth] ${message}`); // tslint:disable-line no-console
     }
   }
 }
