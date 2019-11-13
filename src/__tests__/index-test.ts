@@ -12,13 +12,16 @@ describe('SlicknodeLink', () => {
     const data = {
       test: true,
     };
+
+    const nextLink = sinon.stub().callsFake((e) => {
+      return new Observable<FetchResult>((observer) => {
+        observer.next({data});
+      });
+    });
+
     const slicknodeLink = ApolloLink.from([
       new SlicknodeLink(),
-      new ApolloLink((e) => {
-        return new Observable<FetchResult>((observer) => {
-          observer.next({data});
-        });
-      }),
+      new ApolloLink(nextLink),
     ]);
     const query = gql`{test}`;
     const request: GraphQLRequest = {
@@ -29,6 +32,7 @@ describe('SlicknodeLink', () => {
     observable.subscribe({
       next(result: FetchResult) {
         expect(result.data).to.equal(data);
+        expect(nextLink.calledOnce).to.be.true;
         done();
       },
       error: done,
@@ -726,14 +730,18 @@ describe('SlicknodeLink', () => {
       alias: authTokenSet,
     };
     const slicknodeLink = new SlicknodeLink();
+    const dataLoaderStub = sinon.stub();
+
+    const nextLink = sinon.stub().callsFake(() => {
+      return new Observable<FetchResult>((observer) => {
+        dataLoaderStub();
+        observer.next({data});
+      });
+    });
 
     const link = ApolloLink.from([
       slicknodeLink,
-      new ApolloLink(() => {
-        return new Observable<FetchResult>((observer) => {
-          observer.next({data});
-        });
-      }),
+      new ApolloLink(nextLink),
     ]);
     const query = gql`mutation LoginMutation {
       alias: loginMutation @authenticate {
@@ -767,6 +775,9 @@ describe('SlicknodeLink', () => {
         expect(slicknodeLink.getRefreshTokenExpires()).to.be.below(
           authTokenSet.refreshTokenLifetime * 1000 + Date.now() + 1,
         );
+
+        expect(nextLink.calledOnce).to.be.true;
+        expect(dataLoaderStub.calledOnce).to.be.true;
         done();
       },
       error: done,

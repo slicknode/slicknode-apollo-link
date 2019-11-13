@@ -145,8 +145,18 @@ export default class SlicknodeLink extends ApolloLink {
           const nextObservable = forward(operation);
 
           // Add result listeners for token and logout processing
-          resultListeners.map((listener) => nextObservable.subscribe(listener));
-          nextObservable.subscribe(observer);
+          nextObservable.subscribe({
+            complete(): void {
+              observer.complete();
+            },
+            error(errorValue: any): void {
+              observer.error(errorValue);
+            },
+            next(value: FetchResult): void {
+              resultListeners.forEach((listener) => listener(value));
+              observer.next(value);
+            },
+          });
         })
         .catch((error) => {
           this.debug('Error obtaining auth headers in SlicknodeLink');
