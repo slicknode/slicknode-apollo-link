@@ -299,18 +299,16 @@ export default class SlicknodeLink extends ApolloLink {
   public getAuthHeaders(forward: NextLink): Promise<HeadersInit> {
     // Check if headers are already being loaded
     if (!this.loadHeadersPromise) {
-      this.loadHeadersPromise = new Promise<{[key: string]: string}>((resolve, reject) => {
-        const accessToken = this.options.accessToken || this.getAccessToken();
-        const refreshToken = this.getRefreshToken();
+      const accessToken = this.options.accessToken || this.getAccessToken();
 
-        if (accessToken) {
-          this.debug('Using valid access token');
-          resolve({
-            Authorization: `Bearer ${accessToken}`,
-          });
-          this.loadHeadersPromise = null;
-          return;
-        }
+      if (accessToken) {
+        this.debug('Using valid access token');
+        return Promise.resolve({
+          Authorization: `Bearer ${accessToken}`,
+        });
+      }
+      this.loadHeadersPromise = new Promise<{[key: string]: string}>((resolve, reject) => {
+        const refreshToken = this.getRefreshToken();
 
         // We have no token, try to get it from API via next link
         if (!accessToken && refreshToken) {
@@ -330,6 +328,7 @@ export default class SlicknodeLink extends ApolloLink {
               resolve({});
             },
             next: (result) => {
+              this.loadHeadersPromise = null;
               if (result.data && result.data.refreshAuthToken) {
                 if (!this.validateAndSetAuthTokenSet(result.data.refreshAuthToken)) {
                   this.logout();
@@ -338,7 +337,6 @@ export default class SlicknodeLink extends ApolloLink {
                 this.debug('Refreshing auth token mutation failed');
                 this.logout();
               }
-              this.loadHeadersPromise = null;
               resolve(this.hasAccessToken() ? {
                 Authorization: `Bearer ${this.getAccessToken()}`,
               } : {});
@@ -349,6 +347,8 @@ export default class SlicknodeLink extends ApolloLink {
           resolve({});
         }
       });
+    } else {
+      this.debug('Wait for token refresh in other transaction');
     }
     return this.loadHeadersPromise;
   }
