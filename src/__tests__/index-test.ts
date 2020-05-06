@@ -256,6 +256,86 @@ describe('SlicknodeLink', () => {
     });
   });
 
+  it('executes refreshToken only once for concurrent requests', (done) => {
+    const data = {
+      test: true,
+    };
+    const authTokenSet: IAuthTokenSet = {
+      accessToken: 'accessToken1',
+      accessTokenLifetime: -20,
+      refreshToken: 'refresh1',
+      refreshTokenLifetime: 100,
+    };
+    const refreshedAuthTokenSet: IAuthTokenSet = {
+      accessToken: 'accessToken2',
+      accessTokenLifetime: 20,
+      refreshToken: 'refresh2',
+      refreshTokenLifetime: 200,
+    };
+    const slicknodeLink = new SlicknodeLink();
+    slicknodeLink.setAuthTokenSet(authTokenSet);
+
+    let refreshTokenExecuted = false;
+    const query = gql`{test}`;
+    const link = ApolloLink.from([
+      slicknodeLink,
+      new ApolloLink((operation) => {
+        if (!refreshTokenExecuted) {
+          // First request refreshes auth tokens
+          expect(operation.query).to.deep.equal(gql`${REFRESH_TOKEN_MUTATION}`);
+          expect(operation.variables).to.deep.equal({
+            token: authTokenSet.refreshToken,
+          });
+          expect(operation.getContext()).to.deep.equal({});
+          refreshTokenExecuted = true;
+          return new Observable<FetchResult>((observer) => {
+            // Run in next event loop to test concurrent requests
+            setTimeout(() => {
+              observer.next({
+                data: {
+                  refreshAuthToken: refreshedAuthTokenSet,
+                },
+              });
+            }, 0);
+          });
+        }
+        // Second request returns actual results and should contain auth headers
+        expect(operation.query).to.deep.equal(query);
+        expect(operation.variables).to.deep.equal({});
+        expect(operation.getContext()).to.deep.equal({
+          headers: {
+            Authorization: `Bearer ${refreshedAuthTokenSet.accessToken}`,
+          },
+        });
+        return new Observable<FetchResult>((observer) => {
+          observer.next({data});
+        });
+      }),
+    ]);
+    const request: GraphQLRequest = {
+      query,
+      variables: {},
+    };
+
+    // Execute two requests concurrently
+    const observable = execute(link, request);
+    const observable2 = execute(link, request);
+    observable.subscribe({
+      next(result: FetchResult) {
+        expect(result.data).to.equal(data);
+        // done();
+      },
+      error: done,
+    });
+    observable2.subscribe({
+      next(result: FetchResult) {
+        expect(result.data).to.equal(data);
+        done();
+      },
+      error: done,
+    });
+  });
+
   it('ignores invalid refreshToken', (done) => {
     const data = {
       test: true,

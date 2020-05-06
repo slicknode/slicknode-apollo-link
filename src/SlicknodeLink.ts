@@ -46,6 +46,8 @@ export default class SlicknodeLink extends ApolloLink {
   public storage: IStorage;
   public namespace: string;
 
+  private loadHeadersPromise: Promise<HeadersInit> | null;
+
   /**
    * Constructor
    * @param options
@@ -295,52 +297,60 @@ export default class SlicknodeLink extends ApolloLink {
    * with the refreshToken
    */
   public getAuthHeaders(forward: NextLink): Promise<HeadersInit> {
-    return new Promise<{[key: string]: string}>((resolve, reject) => {
-      const accessToken = this.options.accessToken || this.getAccessToken();
-      const refreshToken = this.getRefreshToken();
+    // Check if headers are already being loaded
+    if (!this.loadHeadersPromise) {
+      this.loadHeadersPromise = new Promise<{[key: string]: string}>((resolve, reject) => {
+        const accessToken = this.options.accessToken || this.getAccessToken();
+        const refreshToken = this.getRefreshToken();
 
-      if (accessToken) {
-        this.debug('Using valid access token');
-        resolve({
-          Authorization: `Bearer ${accessToken}`,
-        });
-        return;
-      }
+        if (accessToken) {
+          this.debug('Using valid access token');
+          resolve({
+            Authorization: `Bearer ${accessToken}`,
+          });
+          this.loadHeadersPromise = null;
+          return;
+        }
 
-      // We have no token, try to get it from API via next link
-      if (!accessToken && refreshToken) {
-        this.debug('No valid access token found, obtaining new AuthTokenSet with refresh token');
-        const refreshOperation = createOperation({}, {
-          query: REFRESH_TOKEN_MUTATION,
-          variables: {
-            token: refreshToken,
-          },
-        });
-        const observer = forward(refreshOperation);
-        observer.subscribe({
-          error: (error) => {
-            this.debug(`Error refreshing AuthTokenSet: ${error.message}`);
-            this.logout();
-            resolve({});
-          },
-          next: (result) => {
-            if (result.data && result.data.refreshAuthToken) {
-              if (!this.validateAndSetAuthTokenSet(result.data.refreshAuthToken)) {
+        // We have no token, try to get it from API via next link
+        if (!accessToken && refreshToken) {
+          this.debug('No valid access token found, obtaining new AuthTokenSet with refresh token');
+          const refreshOperation = createOperation({}, {
+            query: REFRESH_TOKEN_MUTATION,
+            variables: {
+              token: refreshToken,
+            },
+          });
+          const observer = forward(refreshOperation);
+          observer.subscribe({
+            error: (error) => {
+              this.debug(`Error refreshing AuthTokenSet: ${error.message}`);
+              this.logout();
+              this.loadHeadersPromise = null;
+              resolve({});
+            },
+            next: (result) => {
+              if (result.data && result.data.refreshAuthToken) {
+                if (!this.validateAndSetAuthTokenSet(result.data.refreshAuthToken)) {
+                  this.logout();
+                }
+              } else {
+                this.debug('Refreshing auth token mutation failed');
                 this.logout();
               }
-            } else {
-              this.debug('Refreshing auth token mutation failed');
-              this.logout();
-            }
-            resolve(this.hasAccessToken() ? {
-              Authorization: `Bearer ${this.getAccessToken()}`,
-            } : {});
-          },
-        });
-      } else {
-        resolve({});
-      }
-    });
+              this.loadHeadersPromise = null;
+              resolve(this.hasAccessToken() ? {
+                Authorization: `Bearer ${this.getAccessToken()}`,
+              } : {});
+            },
+          });
+        } else {
+          this.loadHeadersPromise = null;
+          resolve({});
+        }
+      });
+    }
+    return this.loadHeadersPromise;
   }
 
   protected validateAndSetAuthTokenSet(tokenSet: any): boolean {
