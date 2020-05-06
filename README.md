@@ -1,5 +1,8 @@
 # Slicknode Apollo Link
 
+![CircleCI](https://img.shields.io/circleci/build/github/slicknode/slicknode-apollo-link)
+![npm](https://img.shields.io/npm/v/slicknode-apollo-link)
+
 ApolloLink component that automatically sets authentication headers for GraphQL requests via the [apollo-client](https://www.apollographql.com/client). It stores the access and refresh tokens in a store (for example InMemory, localStorage, sessionStorage etc.) and keeps track of expiration times. 
 If auth tokens expire, they are automatically refreshed in the background when a request is issued, without interruption to the user. Can be combined with any of the available [apollo links](https://www.apollographql.com/docs/link/#linkslist).
 
