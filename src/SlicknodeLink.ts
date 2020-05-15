@@ -343,8 +343,11 @@ export default class SlicknodeLink extends ApolloLink {
             },
           });
         } else {
-          this.loadHeadersPromise = null;
-          resolve({});
+          // Run in next event loop so loadHeadersPromise is reset after being assigned
+          setTimeout(() => {
+            this.loadHeadersPromise = null;
+            resolve({});
+          }, 0);
         }
       });
     } else {
