@@ -4,6 +4,8 @@ import gql from 'graphql-tag';
 import sinon from 'sinon';
 import SlicknodeLink, {REFRESH_TOKEN_MUTATION} from '../SlicknodeLink';
 import {IAuthTokenSet} from '../types';
+import {MemoryStorage} from '../storage';
+import {GraphQLError} from 'graphql';
 
 // tslint:disable no-unused-expression
 
@@ -20,7 +22,9 @@ describe('SlicknodeLink', () => {
     });
 
     const slicknodeLink = ApolloLink.from([
-      new SlicknodeLink(),
+      new SlicknodeLink({
+        storage: new MemoryStorage(),
+      }),
       new ApolloLink(nextLink),
     ]);
     const query = gql`{test}`;
@@ -34,6 +38,120 @@ describe('SlicknodeLink', () => {
         expect(result.data).to.equal(data);
         expect(nextLink.calledOnce).to.be.true;
         done();
+      },
+      error: done,
+    });
+  });
+
+  it('obtains auth tokens via httpsCookies if no storage set', (done) => {
+    const data = {
+      test: true,
+    };
+    const refreshData = {
+      refreshToken: {
+        accessToken: '234',
+        accessTokenLifetime: 23,
+        refreshToken: 'refresh',
+        refreshTokenLifetime: 100,
+      },
+    };
+    const responses = [
+      {data: refreshData},
+      {data},
+    ];
+
+    const nextLink = sinon.stub().callsFake((e) => {
+      return new Observable<FetchResult>((observer) => {
+        observer.next(responses.shift());
+      });
+    });
+
+    const slicknodeLink = ApolloLink.from([
+      new SlicknodeLink(),
+      new ApolloLink(nextLink),
+    ]);
+    const query = gql`{test}`;
+    const request: GraphQLRequest = {
+      query,
+      variables: {},
+    };
+    const observable = execute(slicknodeLink, request);
+    observable.subscribe({
+      next(result: FetchResult) {
+        expect(result.data).to.equal(data);
+        const calls = nextLink.getCalls();
+        expect(calls.length).to.equal(2);
+        expect(calls[0].args[0].query).to.equal(REFRESH_TOKEN_MUTATION);
+        expect(calls[0].args[0].variables).to.deep.equal({token: null}); // No token set
+        expect(calls[1].args[0].query).to.equal(query);
+        expect(calls[1].args[0].variables).to.equal(request.variables);
+        done();
+      },
+      error: done,
+    });
+  });
+
+  it('does not retry refresh token via cookie after one failed attempt', (done) => {
+    const data = {
+      test: true,
+    };
+    const refreshData = {
+      refreshToken: {
+        accessToken: '234',
+        accessTokenLifetime: 23,
+        refreshToken: 'refresh',
+        refreshTokenLifetime: 100,
+      },
+    };
+    const responses = [
+      {errors: [ new GraphQLError('Failed to refresh') ], data: {refreshToken: null as any}},
+      {data},
+      {data},
+    ];
+
+    const nextLink = sinon.stub().callsFake((e) => {
+      return new Observable<FetchResult>((observer) => {
+        observer.next(responses.shift());
+      });
+    });
+
+    const slicknodeLink = new SlicknodeLink();
+    const link = ApolloLink.from([
+      slicknodeLink,
+      new ApolloLink(nextLink),
+    ]);
+    const query = gql`{test}`;
+    const request: GraphQLRequest = {
+      query,
+      variables: {},
+    };
+    const observable = execute(link, request);
+    observable.subscribe({
+      next(result: FetchResult) {
+        expect(result.data).to.equal(data);
+        const calls = nextLink.getCalls();
+        expect(calls.length).to.equal(2);
+        expect(calls[0].args[0].query).to.equal(REFRESH_TOKEN_MUTATION);
+        expect(calls[0].args[0].variables).to.deep.equal({token: null}); // No token set
+        expect(calls[1].args[0].query).to.equal(query);
+        expect(calls[1].args[0].variables).to.equal(request.variables);
+
+        expect(slicknodeLink.hasAccessToken()).to.be.false;
+        expect(slicknodeLink.hasRefreshToken()).to.be.false;
+
+        // Execute query again
+        const observable2 = execute(link, request);
+        observable2.subscribe({
+          next(result2: FetchResult): void {
+            const calls = nextLink.getCalls();
+            expect(calls.length).to.equal(3); // Only increased by the actual call, no refresh
+            expect(calls[2].args[0].query).to.equal(query);
+            expect(calls[2].args[0].variables).to.equal(request.variables);
+            expect(result2.data).to.equal(data);
+            done();
+          },
+          error: done,
+        });
       },
       error: done,
     });
@@ -809,7 +927,9 @@ describe('SlicknodeLink', () => {
     const data = {
       alias: authTokenSet,
     };
-    const slicknodeLink = new SlicknodeLink();
+    const slicknodeLink = new SlicknodeLink({
+      storage: new MemoryStorage(),
+    });
     const dataLoaderStub = sinon.stub();
 
     const nextLink = sinon.stub().callsFake(() => {

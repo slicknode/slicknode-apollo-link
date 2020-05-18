@@ -9,12 +9,9 @@ const REFRESH_TOKEN_KEY = ':auth:refreshToken';
 const REFRESH_TOKEN_EXPIRES_KEY = ':auth:refreshTokenExpires';
 const ACCESS_TOKEN_KEY = ':auth:accessToken';
 const ACCESS_TOKEN_EXPIRES_KEY = ':auth:accessTokenExpires';
+const AUTHENTICATED_STATE = ':auth:loggedInState';
 
 const DEFAULT_NAMESPACE = 'slicknode';
-
-declare var global: {
-  localStorage: IStorage;
-};
 
 export const REFRESH_TOKEN_MUTATION = gql`mutation refreshToken($token: String!) {
   refreshAuthToken(input: {refreshToken: $token}) {
@@ -47,6 +44,7 @@ export default class SlicknodeLink extends ApolloLink {
   public namespace: string;
 
   private loadHeadersPromise: Promise<HeadersInit> | null;
+  private httpsCookies: boolean;
 
   /**
    * Constructor
@@ -56,7 +54,10 @@ export default class SlicknodeLink extends ApolloLink {
     super();
     this.options = options;
     this.namespace = options.namespace || DEFAULT_NAMESPACE;
-    this.storage = options.storage || global.localStorage || new MemoryStorage();
+    this.storage = options.storage || new MemoryStorage();
+
+    // If storage was not explicitly set, we assume HTTPS cookies to refresh
+    this.httpsCookies = !Boolean(options.storage);
   }
 
   /**
@@ -194,6 +195,7 @@ export default class SlicknodeLink extends ApolloLink {
     this.setAccessTokenExpires(token.accessTokenLifetime * 1000 + Date.now());
     this.setRefreshToken(token.refreshToken);
     this.setRefreshTokenExpires(token.refreshTokenLifetime * 1000 + Date.now());
+    this.setAuthenticatedState(true);
   }
 
   /**
@@ -282,13 +284,42 @@ export default class SlicknodeLink extends ApolloLink {
   }
 
   /**
+   * Sets the authenticated state in storage
+   * @param value
+   */
+  private setAuthenticatedState(value: boolean) {
+    const key = this.namespace + AUTHENTICATED_STATE;
+    this.storage.setItem(key, value ? '1' : '0');
+  }
+
+  /**
+   * Returns the authenticated state, NULL if not set
+   */
+  private getAuthenticatedState(): boolean | null {
+    const key = this.namespace + AUTHENTICATED_STATE;
+    const state = this.storage.getItem(key);
+    if (typeof state === 'string') {
+      return state === '1';
+    }
+    return null;
+  }
+
+  /**
    * Clears all tokens in the storage
    */
   public async logout(): Promise<void> {
-    this.storage.removeItem(this.namespace + REFRESH_TOKEN_KEY);
-    this.storage.removeItem(this.namespace + REFRESH_TOKEN_EXPIRES_KEY);
-    this.storage.removeItem(this.namespace + ACCESS_TOKEN_KEY);
-    this.storage.removeItem(this.namespace + ACCESS_TOKEN_EXPIRES_KEY);
+    const keys = [
+      REFRESH_TOKEN_EXPIRES_KEY,
+      REFRESH_TOKEN_KEY,
+      ACCESS_TOKEN_EXPIRES_KEY,
+      ACCESS_TOKEN_KEY,
+    ];
+    for (let key of keys) {
+      this.storage.removeItem(this.namespace + key);
+    }
+    if (this.httpsCookies) {
+      this.setAuthenticatedState(false);
+    }
   }
 
   /**
@@ -311,12 +342,12 @@ export default class SlicknodeLink extends ApolloLink {
         const refreshToken = this.getRefreshToken();
 
         // We have no token, try to get it from API via next link
-        if (!accessToken && refreshToken) {
+        if (!accessToken && (refreshToken || (this.httpsCookies && this.getAuthenticatedState() === null))) {
           this.debug('No valid access token found, obtaining new AuthTokenSet with refresh token');
           const refreshOperation = createOperation({}, {
             query: REFRESH_TOKEN_MUTATION,
             variables: {
-              token: refreshToken,
+              token: refreshToken || null,
             },
           });
           const observer = forward(refreshOperation);

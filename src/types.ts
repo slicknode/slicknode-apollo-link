@@ -19,7 +19,7 @@ export interface ISlicknodeLinkOptions {
   /**
    * The storage interface to store auth tokens, default is localStorage
    */
-  storage?: Storage;
+  storage?: IStorage;
 
   /**
    * The namespace under which auth tokens are stored in the storage
