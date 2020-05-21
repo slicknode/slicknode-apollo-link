@@ -1,11 +1,11 @@
 import {ApolloLink, execute, FetchResult, GraphQLRequest, Observable} from 'apollo-link';
 import {expect} from 'chai';
+import {GraphQLError} from 'graphql';
 import gql from 'graphql-tag';
 import sinon from 'sinon';
 import SlicknodeLink, {REFRESH_TOKEN_MUTATION} from '../SlicknodeLink';
-import {IAuthTokenSet} from '../types';
 import {MemoryStorage} from '../storage';
-import {GraphQLError} from 'graphql';
+import {IAuthTokenSet} from '../types';
 
 // tslint:disable no-unused-expression
 
@@ -143,10 +143,10 @@ describe('SlicknodeLink', () => {
         const observable2 = execute(link, request);
         observable2.subscribe({
           next(result2: FetchResult): void {
-            const calls = nextLink.getCalls();
-            expect(calls.length).to.equal(3); // Only increased by the actual call, no refresh
-            expect(calls[2].args[0].query).to.equal(query);
-            expect(calls[2].args[0].variables).to.equal(request.variables);
+            const calls2 = nextLink.getCalls();
+            expect(calls2.length).to.equal(3); // Only increased by the actual call, no refresh
+            expect(calls2[2].args[0].query).to.equal(query);
+            expect(calls2[2].args[0].variables).to.equal(request.variables);
             expect(result2.data).to.equal(data);
             done();
           },

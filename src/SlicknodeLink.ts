@@ -13,7 +13,7 @@ const AUTHENTICATED_STATE = ':auth:loggedInState';
 
 const DEFAULT_NAMESPACE = 'slicknode';
 
-export const REFRESH_TOKEN_MUTATION = gql`mutation refreshToken($token: String!) {
+export const REFRESH_TOKEN_MUTATION = gql`mutation refreshToken($token: String) {
   refreshAuthToken(input: {refreshToken: $token}) {
     accessToken
     refreshToken
@@ -284,27 +284,6 @@ export default class SlicknodeLink extends ApolloLink {
   }
 
   /**
-   * Sets the authenticated state in storage
-   * @param value
-   */
-  private setAuthenticatedState(value: boolean) {
-    const key = this.namespace + AUTHENTICATED_STATE;
-    this.storage.setItem(key, value ? '1' : '0');
-  }
-
-  /**
-   * Returns the authenticated state, NULL if not set
-   */
-  private getAuthenticatedState(): boolean | null {
-    const key = this.namespace + AUTHENTICATED_STATE;
-    const state = this.storage.getItem(key);
-    if (typeof state === 'string') {
-      return state === '1';
-    }
-    return null;
-  }
-
-  /**
    * Clears all tokens in the storage
    */
   public async logout(): Promise<void> {
@@ -314,7 +293,7 @@ export default class SlicknodeLink extends ApolloLink {
       ACCESS_TOKEN_EXPIRES_KEY,
       ACCESS_TOKEN_KEY,
     ];
-    for (let key of keys) {
+    for (const key of keys) {
       this.storage.removeItem(this.namespace + key);
     }
     if (this.httpsCookies) {
@@ -410,5 +389,26 @@ export default class SlicknodeLink extends ApolloLink {
     if (this.options.debug) {
       console.log(`[Slicknode Auth] ${message}`); // tslint:disable-line no-console
     }
+  }
+
+  /**
+   * Sets the authenticated state in storage
+   * @param value
+   */
+  private setAuthenticatedState(value: boolean) {
+    const key = this.namespace + AUTHENTICATED_STATE;
+    this.storage.setItem(key, value ? '1' : '0');
+  }
+
+  /**
+   * Returns the authenticated state, NULL if not set
+   */
+  private getAuthenticatedState(): boolean | null {
+    const key = this.namespace + AUTHENTICATED_STATE;
+    const state = this.storage.getItem(key);
+    if (typeof state === 'string') {
+      return state === '1';
+    }
+    return null;
   }
 }
