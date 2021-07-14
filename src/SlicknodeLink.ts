@@ -133,6 +133,14 @@ export default class SlicknodeLink extends ApolloLink {
                   ) {
                     const tokenSet = result.data[fieldName];
                     this.validateAndSetAuthTokenSet(tokenSet);
+
+                    // Exchange refresh token via refreshToken mutation to set cookie
+                    this.getAuthHeaders(forward, this.getRefreshToken())
+                      .then(() => {
+                      })
+                      .catch(e => {
+                        this.debug(`Error obtaining refresh cookie: ${e.message}`);
+                      });
                   } else {
                     this.debug('No valid token set returned');
                   }
@@ -305,23 +313,28 @@ export default class SlicknodeLink extends ApolloLink {
    * Returns the headers that are required to authenticate at the GraphQL endpoint.
    * If no access tokens are available, an attempt is made to retrieve it from the backend
    * with the refreshToken
+   *
+   * If a refresh token is provided, refresh of token is enforced, regardless of existing
+   * access tokens
    */
-  public getAuthHeaders(forward: NextLink): Promise<HeadersInit> {
+  public getAuthHeaders(forward: NextLink, currentRefreshToken: string | null = null): Promise<HeadersInit> {
     // Check if headers are already being loaded
     if (!this.loadHeadersPromise) {
-      const accessToken = this.options.accessToken || this.getAccessToken();
+      if (!currentRefreshToken) {
+        const accessToken = this.options.accessToken || this.getAccessToken();
 
-      if (accessToken) {
-        this.debug('Using valid access token');
-        return Promise.resolve({
-          Authorization: `Bearer ${accessToken}`,
-        });
+        if (accessToken) {
+          this.debug('Using valid access token');
+          return Promise.resolve({
+            Authorization: `Bearer ${accessToken}`,
+          });
+        }
       }
       this.loadHeadersPromise = new Promise<{[key: string]: string}>((resolve, reject) => {
-        const refreshToken = this.getRefreshToken();
+        const refreshToken = currentRefreshToken || this.getRefreshToken();
 
         // We have no token, try to get it from API via next link
-        if (!accessToken && (refreshToken || (this.httpsCookies && this.getAuthenticatedState() === null))) {
+        if ((refreshToken || (this.httpsCookies && this.getAuthenticatedState() === null))) {
           this.debug('No valid access token found, obtaining new AuthTokenSet with refresh token');
           const refreshOperation = createOperation({}, {
             query: REFRESH_TOKEN_MUTATION,
