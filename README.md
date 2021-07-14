@@ -25,7 +25,6 @@ This is a minimal example to create an instance of an apollo client with Slickno
 import {
   ApolloClient,
   InMemoryCache,
-  ApolloProvider,
   HttpLink,
   ApolloLink,
 } from '@apollo/client';
