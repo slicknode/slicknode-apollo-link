@@ -28,20 +28,19 @@
     "LICENSE"
   ],
   "devDependencies": {
-    "@types/chai": "^4.1.4",
-    "@types/graphql": "^14.0.3",
-    "@types/mocha": "^5.2.5",
-    "@types/sinon": "^5.0.2",
-    "chai": "^4.1.2",
-    "coveralls": "^3.0.2",
-    "graphql": "^14.0.2",
-    "mocha": "^5.2.0",
-    "nyc": "^13.0.1",
-    "rimraf": "^2.6.2",
-    "sinon": "^6.3.1",
-    "ts-node": "^7.0.1",
-    "tslint": "^5.11.0",
-    "typescript": "^3.0.3"
+    "@types/chai": "^4.2.21",
+    "@types/mocha": "^8.2.3",
+    "@types/node": "^16.3.2",
+    "@types/sinon": "^10.0.2",
+    "chai": "^4.3.4",
+    "coveralls": "^3.1.1",
+    "graphql": "^15.5.1",
+    "mocha": "^9.0.2",
+    "nyc": "^15.1.0",
+    "rimraf": "^3.0.2",
+    "sinon": "^11.1.1",
+    "ts-node": "^10.1.0",
+    "typescript": "^4.3.5"
   },
   "nyc": {
     "extension": [
@@ -59,12 +58,9 @@
     ],
     "all": true
   },
-  "dependencies": {
-    "apollo-link": "^1.2.2",
-    "apollo-utilities": "^1.0.26",
-    "graphql-tag": "^2.10.0"
-  },
+  "dependencies": {},
   "peerDependencies": {
-    "graphql": "^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0"
+    "@apollo/client": "^3.3.21",
+    "graphql": "^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0"
   }
 }

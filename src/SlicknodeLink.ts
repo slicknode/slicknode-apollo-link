@@ -1,7 +1,7 @@
-import {ApolloLink, createOperation, FetchResult, NextLink, Observable, Operation} from 'apollo-link';
-import {removeDirectivesFromDocument} from 'apollo-utilities';
-import { DirectiveNode, FieldNode, OperationDefinitionNode } from 'graphql';
-import gql from 'graphql-tag';
+import { ApolloLink, FetchResult, NextLink, Observable, Operation, gql } from '@apollo/client/core';
+import { createOperation } from '@apollo/client/link/utils';
+import { removeDirectivesFromDocument } from '@apollo/client/utilities';
+import { DirectiveNode, FieldNode, OperationDefinitionNode } from 'graphql/language';
 import MemoryStorage from './storage/MemoryStorage';
 import {IAuthTokenSet, ISlicknodeLinkOptions, IStorage} from './types';
 
