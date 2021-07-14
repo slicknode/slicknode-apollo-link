@@ -6,13 +6,15 @@
 ApolloLink component that automatically sets authentication headers for GraphQL requests via the [@apollo/client](https://www.apollographql.com/client). It stores the access and refresh tokens in a store (for example InMemory, localStorage, sessionStorage etc.) and keeps track of expiration times. 
 If auth tokens expire, they are automatically refreshed in the background when a request is issued, without interruption to the user. Can be combined with any of the available [apollo links](https://www.apollographql.com/docs/link/#linkslist).
 
+Works with any GraphQL API that implements auth mutations as outlined in the [Slicknode documentation](https://slicknode.com/docs/auth/authentication/).
+
 ## Installation
 
 Install the [slicknode-apollo-link](https://github.com/slicknode/slicknode-apollo-link) npm package: 
 
-    yarn add slicknode-apollo-link
+    npm install slicknode-apollo-link
 
-There is also a peer dependencie to `graphql` which you should already have installed when you are using the [apollo-client](https://www.apollographql.com/client).
+Slicknode Apollo Link has peer dependencies to `graphql` and `@apollo/client` which you should already have installed when you are using the [Apollo Client](https://www.apollographql.com/client).
 
 ## Usage
 
