@@ -97,7 +97,7 @@ export default class SlicknodeLink extends ApolloLink {
           }) as OperationDefinitionNode | null;
 
           // Check mutations for directives and logoutMutation
-          const resultListeners: Array<(value: any) => void> = [];
+          const resultListeners: ((value: any) => void)[] = [];
           if (currentOperation && currentOperation.operation === 'mutation') {
             const fields: FieldNode[] = [];
             currentOperation.selectionSet.selections.forEach((selectionNode) => {
